@@ -1,0 +1,15 @@
+_internal/
+*.exe
+__pycache__/
+source/work/
+source/*state*/
+package/
+release-assets/
+ffmpeg-build/
+ffmpeg.zip
+work/
+undo_state.json
+last_write_report.json
+update_config.json
+release-package.json
+*.tmp
