@@ -54,4 +54,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$env:X3_RELEASE_VERSION" --target "$env:GITHUB_SHA" --draft --title "X3-Wwise v$env:X3_RELEASE_VERSION" --generate-notes --repo "$env:GITHUB_REPOSITORY" release-assets/*.zip release-assets/update.json
+          gh release create "v$env:X3_RELEASE_VERSION" --target "$env:GITHUB_SHA" --draft --title "Wwise 响度与增益管理器 v$env:X3_RELEASE_VERSION" --generate-notes --repo "$env:GITHUB_REPOSITORY" release-assets/*.zip release-assets/update.json
