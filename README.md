@@ -1,4 +1,4 @@
-# X3-Wwise 响度与增益管理器
+# Wwise 响度与增益管理器
 
 用于 Windows 的 Wwise 批量响度管理工具。
 
