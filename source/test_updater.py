@@ -147,12 +147,16 @@ class UpdaterTests(unittest.TestCase):
             install_transaction(new, old, '1.0.1', fail)
         self.assertEqual(before, {p.relative_to(old).as_posix(): p.read_bytes() for p in old.rglob('*') if p.is_file()})
         original = u.os.replace
+        locked_paths = []
         def locked(source, destination):
-            if Path(source) == old / '_internal': raise PermissionError('file locked')
+            if Path(source).resolve() == (old / '_internal').resolve():
+                locked_paths.append(Path(source).resolve())
+                raise PermissionError('file locked')
             return original(source, destination)
         with patch('update_helper.os.replace', side_effect=locked):
             with self.assertRaisesRegex(u.UpdateError, '已恢复旧版'):
                 install_transaction(new, old, '1.0.1', lambda *_: None)
+        self.assertEqual(locked_paths, [(old / '_internal').resolve()])
         self.assertEqual(before, {p.relative_to(old).as_posix(): p.read_bytes() for p in old.rglob('*') if p.is_file()})
 
     def test_publisher_excludes_personal_records(self):
