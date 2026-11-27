@@ -6,6 +6,7 @@ Wwise 音频与音乐响度管理器 - GUI 版。
 import os
 import math
 import queue
+import re
 import sys
 import threading
 import time
@@ -703,44 +704,115 @@ class App:
     def _build_update_ui(self):
         self.update_window = tk.Toplevel(self.root)
         self.update_window.title('程序更新')
-        self.update_window.geometry('600x520')
-        self.update_window.minsize(540, 460)
+        self.update_window.geometry('640x580')
+        self.update_window.minsize(560, 500)
         self.update_window.withdraw()
         self.update_window.transient(self.root)
         self.update_window.protocol('WM_DELETE_WINDOW', self._close_update_window)
-        panel = ttk.Frame(self.update_window, padding=24)
-        panel.pack(fill='both', expand=True)
-        ttk.Label(panel, text='程序更新', style='PageTitle.TLabel').pack(anchor='w')
-        ttk.Label(panel, text='当前版本 v' + self.update_info['version'], style='Hint.TLabel').pack(anchor='w', pady=(6, 16))
-        ttk.Label(panel, text='GitHub 更新仓库').pack(anchor='w')
-        self.update_repo_var = tk.StringVar(value=self.update_config['repository'])
-        self.update_repo_entry = ttk.Entry(panel, textvariable=self.update_repo_var)
-        self.update_repo_entry.pack(fill='x', pady=(6, 4))
-        ttk.Label(panel, text='填写公开仓库地址或「账号/仓库」。发布者设置好后，使用者无需更改。',
-                  style='Hint.TLabel', wraplength=540).pack(anchor='w')
-        self.update_auto_var = tk.BooleanVar(value=self.update_config['auto_check'])
-        self.update_auto_check = ttk.Checkbutton(panel, text='启动时自动检查更新', variable=self.update_auto_var)
-        self.update_auto_check.pack(anchor='w', pady=(10, 8))
-        settings = ttk.Frame(panel)
-        settings.pack(fill='x')
-        self.btn_update_save = ttk.Button(settings, text='保存更新设置', command=self.on_save_update_config)
-        self.btn_update_save.pack(side='left')
-        self.btn_update_check = ttk.Button(settings, text='检查更新', command=self.on_check_update)
-        self.btn_update_check.pack(side='left', padx=8)
-        self.update_status_var = tk.StringVar(value=self.update_config_error or '检查 GitHub Releases 中的正式版本。')
-        ttk.Label(panel, textvariable=self.update_status_var, style='Hint.TLabel', wraplength=540).pack(fill='x', pady=(16, 8))
-        self.update_progress = ttk.Progressbar(panel, mode='determinate')
-        self.update_progress.pack(fill='x', pady=(0, 12))
-        self.update_notes = tk.Text(panel, height=5, wrap='word', state='disabled',
-            font=('Microsoft YaHei UI', 9), background=self.colors['panel'], relief='flat', padx=10, pady=8)
-        self.update_notes.pack(fill='both', expand=True)
-        actions = ttk.Frame(panel)
-        actions.pack(fill='x', pady=(16, 0))
+        self.update_window.configure(background=self.colors['page'])
+        # Reserve the footer before allocating space to the resizable content.
+        # Packing it last can compress the buttons below their text height.
+        footer = ttk.Frame(self.update_window, padding=(24, 0, 24, 20))
+        footer.pack(side='bottom', fill='x')
+        ttk.Separator(footer).pack(fill='x', pady=(0, 12))
+        actions = ttk.Frame(footer)
+        actions.pack(fill='x')
         self.btn_update_install = ttk.Button(actions, text='下载并更新', style='Primary.TButton',
             state='disabled', command=self.on_install_update)
         self.btn_update_install.pack(side='right')
         self.btn_update_cancel = ttk.Button(actions, text='取消下载', state='disabled', command=self.update_cancel.set)
-        self.btn_update_cancel.pack(side='right', padx=8)
+        self.btn_update_cancel.pack(side='right', padx=(0, 8))
+
+        panel = ttk.Frame(self.update_window, padding=(24, 20, 24, 16))
+        panel.pack(fill='both', expand=True)
+        panel.columnconfigure(0, weight=1)
+        panel.rowconfigure(8, weight=1)
+        header = ttk.Frame(panel)
+        header.grid(row=0, column=0, sticky='ew', pady=(0, 16))
+        ttk.Label(header, text='程序更新', style='PageTitle.TLabel').pack(side='left')
+        ttk.Label(header, text='当前版本 v' + self.update_info['version'], style='Hint.TLabel').pack(side='right')
+        ttk.Label(panel, text='GitHub 更新仓库').grid(row=1, column=0, sticky='w')
+        self.update_repo_var = tk.StringVar(value=self.update_config['repository'])
+        self.update_repo_entry = ttk.Entry(panel, textvariable=self.update_repo_var)
+        self.update_repo_entry.grid(row=2, column=0, sticky='ew', pady=(6, 4))
+        repo_hint = ttk.Label(panel, text='公开仓库地址或「账号/仓库」；发布者设置好后，使用者无需更改。',
+                              style='Hint.TLabel', wraplength=512)
+        repo_hint.grid(row=3, column=0, sticky='ew')
+        settings = ttk.Frame(panel)
+        settings.grid(row=4, column=0, sticky='ew', pady=(12, 0))
+        self.update_auto_var = tk.BooleanVar(value=self.update_config['auto_check'])
+        self.update_auto_check = ttk.Checkbutton(settings, text='启动时自动检查更新', variable=self.update_auto_var)
+        self.update_auto_check.pack(side='left')
+        self.btn_update_check = ttk.Button(settings, text='检查更新', command=self.on_check_update)
+        self.btn_update_check.pack(side='right')
+        self.btn_update_save = ttk.Button(settings, text='保存更新设置', command=self.on_save_update_config)
+        self.btn_update_save.pack(side='right', padx=(8, 8))
+        self.update_status_var = tk.StringVar(value=self.update_config_error or '检查 GitHub Releases 中的正式版本。')
+        status = ttk.Frame(panel)
+        status.grid(row=5, column=0, sticky='ew', pady=(16, 6))
+        status.columnconfigure(0, weight=1)
+        self.update_status_text = tk.Text(status, height=2, width=1, wrap='word', state='disabled',
+            font=('Microsoft YaHei UI', 9), background=self.colors['page'], foreground=self.colors['muted'],
+            relief='flat', highlightthickness=0, padx=0, pady=0,
+            selectbackground=self.colors['select'], selectforeground=self.colors['ink'])
+        self.update_status_text.grid(row=0, column=0, sticky='ew')
+        self.update_status_scroll = ttk.Scrollbar(status, orient='vertical', command=self.update_status_text.yview)
+        self.update_status_scroll.grid(row=0, column=1, sticky='ns', padx=(8, 0))
+        def status_scroll(first, last):
+            self.update_status_scroll.set(first, last)
+            if float(first) <= 0 and float(last) >= 1:
+                self.update_status_scroll.grid_remove()
+            else:
+                self.update_status_scroll.grid()
+        self.update_status_text.configure(yscrollcommand=status_scroll)
+        self.update_status_var.trace_add('write', self._render_update_status)
+        self._render_update_status()
+        self.update_progress = ttk.Progressbar(panel, mode='determinate')
+        self.update_progress.grid(row=6, column=0, sticky='ew', pady=(0, 16))
+        ttk.Label(panel, text='更新说明', style='Section.TLabel').grid(row=7, column=0, sticky='w', pady=(0, 8))
+        notes = ttk.Frame(panel, style='Panel.TFrame')
+        notes.grid(row=8, column=0, sticky='nsew')
+        notes.columnconfigure(0, weight=1)
+        notes.rowconfigure(0, weight=1)
+        self.update_notes = tk.Text(notes, height=3, width=1, wrap='word', state='disabled',
+            font=('Microsoft YaHei UI', 9), background=self.colors['panel'], foreground=self.colors['ink'],
+            relief='flat', highlightthickness=0, padx=12, pady=10,
+            selectbackground=self.colors['select'], selectforeground=self.colors['ink'])
+        self.update_notes.grid(row=0, column=0, sticky='nsew')
+        self.update_notes_scroll = ttk.Scrollbar(notes, orient='vertical', command=self.update_notes.yview)
+        self.update_notes_scroll.grid(row=0, column=1, sticky='ns')
+        self.update_notes.configure(yscrollcommand=self.update_notes_scroll.set)
+        self.update_notes.tag_configure('heading', font=('Microsoft YaHei UI', 11, 'bold'), spacing1=8, spacing3=6)
+        self.update_notes.tag_configure('version', font=('Microsoft YaHei UI', 10, 'bold'), spacing1=6, spacing3=4)
+        self.update_notes.tag_configure('body', spacing3=4)
+        self._set_update_notes('检查更新后，这里会显示新版说明。')
+        panel.bind('<Configure>', lambda event: repo_hint.configure(wraplength=max(1, event.width - 48)))
+        # Fit fixed controls at the current Windows font/DPI scale.
+        self.update_window.update_idletasks()
+        min_width = max(560, settings.winfo_reqwidth() + 48)
+        min_height = max(500, panel.winfo_reqheight() + footer.winfo_reqheight())
+        self.update_window.minsize(min_width, min_height)
+        self.update_window.geometry('%dx%d' % (max(640, min_width), max(580, min_height)))
+
+    def _render_update_status(self, *_):
+        self.update_status_text.configure(state='normal')
+        self.update_status_text.delete('1.0', 'end')
+        self.update_status_text.insert('1.0', self.update_status_var.get())
+        self.update_status_text.configure(state='disabled')
+        self.update_status_text.yview_moveto(0)
+
+    def _set_update_notes(self, notes):
+        self.update_notes.configure(state='normal')
+        self.update_notes.delete('1.0', 'end')
+        for line in notes.splitlines():
+            heading = re.match(r'^(#{1,6})\s+(.+?)\s*#*\s*$', line)
+            tag = 'body'
+            if heading:
+                line = heading.group(2)
+                tag = 'heading' if len(heading.group(1)) == 1 else 'version'
+            self.update_notes.insert('end', line + '\n', tag)
+        self.update_notes.configure(state='disabled')
+        self.update_notes.yview_moveto(0)
 
     def _close_update_window(self):
         if self.update_downloading:
@@ -897,10 +969,7 @@ class App:
                 self._append_log('更新检查设置未保存：' + str(exc))
             release = self.available_release
             self.update_status_var.set('发现新版本 v%s，可下载并更新。' % release['version'] if release else '当前 v%s 已是最新正式版本。' % self.update_info['version'])
-            self.update_notes.configure(state='normal')
-            self.update_notes.delete('1.0', 'end')
-            self.update_notes.insert('1.0', release['notes'] if release else '')
-            self.update_notes.configure(state='disabled')
+            self._set_update_notes(release['notes'] or '发布者未提供本版本说明。' if release else '当前版本无需更新。')
             self.btn_update.configure(text='发现新版本' if release else '检查更新')
             self._update_controls()
         elif kind == 'update_progress':

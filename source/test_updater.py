@@ -173,6 +173,47 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual(data['notes'], '测试说明')
         u.extract_package(package, self.root / 'unpacked', '1.0.1')
 
+    def test_update_window_keeps_actions_visible_at_all_sizes(self):
+        import tkinter as tk
+        import app
+        root = tk.Tk(); root.withdraw()
+        try:
+            with patch.object(app, 'BASE', str(self.root)):
+                ui = app.App(root, check_updates=False)
+                root.deiconify()
+                ui.update_window.deiconify()
+                for width, height in ((560, 500), (640, 580), (800, 700)):
+                    ui.update_window.geometry('%dx%d' % (width, height))
+                    for downloading in (False, True):
+                        ui.update_downloading = downloading
+                        ui._update_controls()
+                        ui.update_status_var.set('网络错误：' + '请检查网络连接后重试。' * 100)
+                        ui._set_update_notes('# 版本更新说明\n\n## 1.0.2\n' + '- 完整更新说明\n' * 100)
+                        root.update()
+                        for button in (ui.btn_update_install, ui.btn_update_cancel,
+                                       ui.btn_update_save, ui.btn_update_check):
+                            self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
+                            self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
+                            self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                                 ui.update_window.winfo_rooty() + ui.update_window.winfo_height())
+                        self.assertGreaterEqual(ui.update_notes.winfo_height(), 60)
+                        self.assertLess(ui.update_notes.yview()[1], 1)
+                        self.assertLess(ui.update_status_text.yview()[1], 1)
+                        self.assertEqual(str(ui.update_status_text['state']), 'disabled')
+                        self.assertEqual(str(ui.btn_update_cancel['state']), 'normal' if downloading else 'disabled')
+                self.assertNotIn('#', ui.update_notes.get('1.0', 'end'))
+                self.assertTrue(ui.update_notes.tag_ranges('heading'))
+                ui.update_cancel.clear()
+                ui.btn_update_cancel.invoke()
+                self.assertTrue(ui.update_cancel.is_set())
+                ui._handle_msg(('update_failed', '已取消下载，请重新检查更新。'))
+                self.assertFalse(ui.update_downloading)
+                self.assertEqual(str(ui.btn_update_check['state']), 'normal')
+                ui._handle_msg(('update_checked', None))
+                self.assertIn('当前版本无需更新', ui.update_notes.get('1.0', 'end'))
+        finally:
+            root.destroy()
+
     def test_gui_update_states_preserve_wwise_preview(self):
         import tkinter as tk
         from types import SimpleNamespace
