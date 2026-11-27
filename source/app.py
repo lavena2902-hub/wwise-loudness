@@ -28,7 +28,7 @@ def _fatal_error(msg):
         try:
             import ctypes
             ctypes.windll.user32.MessageBoxW(
-                0, msg[:2000], 'X3-Wwise响度批量管理器 - 启动错误', 16)
+                0, msg[:2000], 'Wwise 响度与增益管理器 - 启动错误', 16)
         except Exception:
             pass
     print(msg, file=sys.stderr)
@@ -55,7 +55,7 @@ import event_report                                # noqa: E402
 import updater                                     # noqa: E402
 from pipeline import Pipeline, WaapiError, find_ffmpeg   # noqa: E402
 
-APP_TITLE = 'X3-Wwise 响度与增益管理器'
+APP_TITLE = 'Wwise 响度与增益管理器'
 
 
 class App:
